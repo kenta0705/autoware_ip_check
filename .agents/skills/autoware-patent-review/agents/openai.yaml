@@ -1,0 +1,3 @@
+display_name: Autoware Patent Review
+short_description: Review Autoware PRs for patent-sensitive features.
+default_prompt: Review the current Autoware changes for patent-sensitive autonomous driving technical features and produce an IP review report.
