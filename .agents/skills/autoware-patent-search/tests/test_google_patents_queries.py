@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, unquote_plus, urlparse
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
+
 from patent_cross_search_queries import (  # noqa: E402
     build_bigquery_sql,
     build_google_queries,

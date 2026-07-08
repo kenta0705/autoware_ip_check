@@ -30,6 +30,32 @@ TEXT_FIELDS = [
 ]
 CPC_BROAD_RE = re.compile(r"^[A-HY][0-9]{2}[A-Z]$", re.IGNORECASE)
 
+CPC_BROAD_RE = re.compile(r"^[A-HY][0-9]{2}[A-Z]$", re.IGNORECASE)
+
+
+def google_cpc_filter(code: str) -> str:
+    """Return Google Patents CPC filter syntax for a classification hint.
+
+    Broad subclasses (for example B60W) use Google Patents metadata-style
+    ``cpc:`` syntax, which includes child classifications. More specific CPC
+    groups use field syntax with ``/low`` so children remain included instead of
+    matching only the exact classification.
+    """
+    normalized = code.strip().upper()
+    if CPC_BROAD_RE.fullmatch(normalized):
+        return f"cpc:{normalized}"
+    return f"CPC={normalized}/low"
+
+
+def google_assignee_filter(name: str) -> str:
+    """Return Google Patents assignee metadata filter syntax."""
+    cleaned = name.strip()
+    if not cleaned:
+        return ""
+    if re.search(r"\s", cleaned):
+        return f'assignee:"{cleaned}"'
+    return f"assignee:{cleaned}"
+
 
 @dataclass(frozen=True)
 class QueryPlan:
