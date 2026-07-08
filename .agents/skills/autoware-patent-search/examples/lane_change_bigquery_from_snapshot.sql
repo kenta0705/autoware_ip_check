@@ -16,14 +16,10 @@ CREATE TEMP FUNCTION text_has(term STRING, texts ARRAY<STRUCT<language STRING, t
 CREATE TEMP FUNCTION any_text_has(
   term STRING,
   title_localized ARRAY<STRUCT<language STRING, text STRING, truncated BOOL>>,
-  abstract_localized ARRAY<STRUCT<language STRING, text STRING, truncated BOOL>>,
-  description_localized ARRAY<STRUCT<language STRING, text STRING, truncated BOOL>>,
-  claims_localized ARRAY<STRUCT<language STRING, text STRING, truncated BOOL>>
+  abstract_localized ARRAY<STRUCT<language STRING, text STRING, truncated BOOL>>
 ) AS (
   text_has(term, title_localized)
   OR text_has(term, abstract_localized)
-  OR text_has(term, description_localized)
-  OR text_has(term, claims_localized)
 );
 
 WITH implementation_terms AS (
@@ -128,7 +124,7 @@ publication_hits AS (
   CROSS JOIN implementation_terms AS it
   CROSS JOIN UNNEST(it.terms) AS term
   WHERE
-    any_text_has(term, p.title_localized, p.abstract_localized, p.description_localized, p.claims_localized)
+    any_text_has(term, p.title_localized, p.abstract_localized)
     AND (
       EXISTS (SELECT 1 FROM UNNEST(p.cpc) AS c WHERE STARTS_WITH(c.code, 'B60W'))
       OR EXISTS (SELECT 1 FROM UNNEST(p.cpc) AS c WHERE STARTS_WITH(c.code, 'G05D1'))
