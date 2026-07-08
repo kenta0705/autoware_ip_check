@@ -101,3 +101,28 @@ def test_bigquery_cli_options_do_not_reintroduce_removed_database_paths():
     assert "--database" not in help_text
     assert "--module" in help_text
     assert "--include-review-urls" in help_text
+
+
+def test_bigquery_where_requires_feature_terms_not_broad_context_alone():
+    sql = build_bigquery_sql(
+        module="planning/behavior_path_planner/lane_change",
+        feature="lane change path generation",
+        keywords=["collision check", "predicted object"],
+        jp="車線変更",
+        cpc=["B60W"],
+        assignee=[],
+        limit=10,
+    )
+
+    where_sql = sql.split("\nWHERE ", 1)[1].split("\nORDER BY", 1)[0]
+    select_sql = sql.split("\nWHERE ", 1)[0]
+
+    assert "lane change path generation" in where_sql
+    assert "collision check" in where_sql
+    assert "predicted object" in where_sql
+    assert "車線変更" in where_sql
+    assert "autonomous vehicle" not in where_sql
+    assert "automated driving" not in where_sql
+    assert "broad_context_match_count" in select_sql
+    assert "autonomous vehicle" in select_sql
+    assert "STARTS_WITH(c.code, 'B60W')" in where_sql

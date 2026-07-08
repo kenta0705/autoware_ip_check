@@ -84,12 +84,22 @@ def google_url_for(query: str) -> str:
     return f"https://patents.google.com/?q=({quote_plus(query)})"
 
 
-def normalized_terms(feature: str, keywords: list[str], jp: str | None) -> list[str]:
+def normalized_terms(*term_groups: str | None) -> list[str]:
     terms: list[str] = []
-    for term in [feature, *DEFAULT_CONTEXT, *keywords, jp]:
+    for term in term_groups:
         if term and term.strip() and term.strip() not in terms:
             terms.append(term.strip())
     return terms
+
+
+def feature_terms(feature: str, keywords: list[str], jp: str | None) -> list[str]:
+    """Return terms that must drive candidate retrieval for the reviewed feature."""
+    return normalized_terms(feature, *keywords, jp)
+
+
+def context_terms() -> list[str]:
+    """Return broad autonomous-driving context terms used only as support signals."""
+    return normalized_terms(*DEFAULT_CONTEXT)
 
 
 def text_term_condition(term: str) -> str:
@@ -103,8 +113,14 @@ def text_term_condition(term: str) -> str:
     return "(" + " OR\n      ".join(field_conditions) + ")"
 
 
-def text_query_condition(terms: list[str]) -> str:
-    return "(\n    " + "\n    OR ".join(text_term_condition(term) for term in terms) + "\n  )"
+def text_query_condition(terms: list[str], indent: str = "    ") -> str:
+    return "(\n" + indent + ("\n" + indent + "OR ").join(text_term_condition(term) for term in terms) + "\n  )"
+
+
+def text_score_expression(terms: list[str]) -> str:
+    if not terms:
+        return "0"
+    return " +\n  ".join(f"IF({text_term_condition(term)}, 1, 0)" for term in terms)
 
 
 def cpc_condition(cpc: list[str]) -> str:
@@ -148,8 +164,11 @@ def build_bigquery_sql(
     limit: int = 50,
 ) -> str:
     """Build a reproducible Google Patents Public Data SQL query."""
-    terms = normalized_terms(feature, keywords, jp)
-    where_clauses = [text_query_condition(terms)]
+    required_feature_terms = feature_terms(feature, keywords, jp)
+    if not required_feature_terms:
+        raise ValueError("At least one feature-specific term is required via --feature, --keyword, or --jp")
+    broad_context_terms = context_terms()
+    where_clauses = [text_query_condition(required_feature_terms)]
     for optional_condition in [
         cpc_condition(cpc),
         assignee_condition(assignee),
@@ -173,10 +192,11 @@ SELECT
   (SELECT text FROM UNNEST(p.abstract_localized) LIMIT 1) AS abstract,
   {assignee_select},
   {cpc_select},
+  ({text_score_expression(broad_context_terms)}) AS broad_context_match_count,
   CONCAT('https://patents.google.com/patent/', p.publication_number) AS google_patents_url
 FROM {GOOGLE_PATENTS_PUBLICATIONS_TABLE} AS p
 WHERE {where_sql}
-ORDER BY p.publication_date DESC
+ORDER BY broad_context_match_count DESC, p.publication_date DESC
 LIMIT {limit};"""
 
 
